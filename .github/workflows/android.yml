@@ -1,0 +1,53 @@
+name: Build Android APK
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android, armv7-linux-androideabi, i686-linux-android, x86_64-linux-android
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Install Tauri CLI
+        run: npm install -g @tauri-apps/cli
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+        
+      - name: Install NDK
+        run: sdkmanager "ndk;25.2.9519653"
+
+      - name: Init and Build Android
+        run: |
+          export NDK_HOME=$ANDROID_HOME/ndk/25.2.9519653
+          npx tauri android init --ci
+          npx tauri android build --apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: event-pix-android-apk
+          path: src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk
