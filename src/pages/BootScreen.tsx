@@ -6,16 +6,22 @@ export default function BootScreen({ onReady }: { onReady: () => void }) {
 
   useEffect(() => {
     async function initDevice() {
-      // Check if device_id exists in localStorage
+      // Generar PIN único (solo si no existe en localStorage)
       let deviceId = localStorage.getItem('device_id');
-      
       if (!deviceId) {
-        // Generate new 6 char code
         const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
         const newPin = Array.from({ length: 6 }).map(() => chars[Math.floor(Math.random() * chars.length)]).join('');
         deviceId = newPin;
         localStorage.setItem('device_id', deviceId);
+      }
+      
+      // Revisar si existe en la base de datos
+      const { data: existing } = await supabase.from('display_devices')
+        .select('device_id')
+        .eq('device_id', deviceId)
+        .single();
         
+      if (!existing) {
         // Insert into Supabase
         await supabase.from('display_devices').insert([
           { device_id: deviceId, pairing_status: 'pending' }
