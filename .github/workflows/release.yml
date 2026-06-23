@@ -42,8 +42,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: event-pix-v__VERSION__ # This creates an automatic tag based on package.json
-          releaseName: 'EventPix Desktop v__VERSION__'
+          tagName: ${{ github.ref_name }}
+          releaseName: 'EventPix Desktop ${{ github.ref_name }}'
           releaseBody: 'Mira los assets de abajo para descargar la aplicación para tu sistema operativo.'
-          releaseDraft: true
+          releaseDraft: false
           prerelease: false
