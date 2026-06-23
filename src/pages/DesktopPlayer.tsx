@@ -54,15 +54,34 @@ export default function DesktopPlayer() {
       }, (payload) => {
         console.log("Actualización en tiempo real:", payload);
         if (payload.new.pairing_status === 'pending') {
-          // Fue desvinculado desde el hub o desde el menú
           window.location.reload();
         }
         fetchAssignedMedia(); // Refrescar contenido
       })
       .subscribe();
 
+    // Latido (Heartbeat) cada 30 segundos y polling de respaldo
+    const heartbeatInterval = setInterval(async () => {
+      // 1. Enviar latido para que el Hub lo vea "En línea"
+      await supabase.from('display_devices')
+        .update({ last_seen: new Date().toISOString() })
+        .eq('device_id', deviceId);
+        
+      // 2. Polling de respaldo (por si Realtime falla) para contenido y desvinculación
+      const { data } = await supabase.from('display_devices').select('pairing_status').eq('device_id', deviceId).single();
+      if (data && data.pairing_status === 'pending') {
+        window.location.reload();
+      } else {
+        fetchAssignedMedia();
+      }
+    }, 30000);
+    
+    // Latido inicial inmediato
+    supabase.from('display_devices').update({ last_seen: new Date().toISOString() }).eq('device_id', deviceId).then();
+
     return () => {
       supabase.removeChannel(channel);
+      clearInterval(heartbeatInterval);
     };
   }, []);
 

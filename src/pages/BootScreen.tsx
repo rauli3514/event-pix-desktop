@@ -58,8 +58,22 @@ export default function BootScreen({ onReady }: { onReady: () => void }) {
         )
         .subscribe();
         
+      // Polling de respaldo cada 5 segundos (por si Realtime está desactivado en Supabase)
+      const pollInterval = setInterval(async () => {
+        const { data } = await supabase.from('display_devices')
+          .select('pairing_status')
+          .eq('device_id', deviceId)
+          .single();
+        if (data && data.pairing_status === 'linked') {
+          clearInterval(pollInterval);
+          subscription.unsubscribe();
+          onReady();
+        }
+      }, 5000);
+
       return () => {
         subscription.unsubscribe();
+        clearInterval(pollInterval);
       };
     }
     
