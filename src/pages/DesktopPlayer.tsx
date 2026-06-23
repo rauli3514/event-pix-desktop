@@ -24,20 +24,74 @@ export default function DesktopPlayer() {
     if (!deviceId) return;
 
     const fetchAssignedMedia = async () => {
-      const { data, error } = await supabase
+      // 1. Obtener UUID del dispositivo
+      const { data: device, error } = await supabase
         .from('display_devices')
-        .select('group_id, pairing_status')
+        .select('id, group_id, pairing_status')
         .eq('device_id', deviceId)
         .single();
       
-      if (!error && data?.assigned_media) {
-        // Para simplificar, asumimos que si hay assigned_media, reproducimos eso (ignora las listas complejas por ahora)
-        setMediaItems([{
-          id: data.assigned_media.id,
-          type: data.assigned_media.type,
-          url: data.assigned_media.url,
-          duration: data.assigned_media.duration || 10
-        }]);
+      if (error || !device) return;
+
+      // 2. Buscar asignaciones para el dispositivo o su zona
+      let orQuery = `device_id.eq.${device.id}`;
+      if (device.group_id) {
+        orQuery += `,group_id.eq.${device.group_id}`;
+      }
+
+      const { data: assignments } = await supabase
+        .from('display_assignments')
+        .select(`
+          *,
+          media:display_media(*),
+          campaign:display_campaigns(*)
+        `)
+        .or(orQuery)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (assignments && assignments.length > 0) {
+        const assignment = assignments[0];
+        
+        if (assignment.campaign && assignment.campaign.items_json) {
+          // Playlist
+          const mediaIds = assignment.campaign.items_json.map((i: any) => i.media_id);
+          if (mediaIds.length === 0) {
+            setMediaItems([]);
+            return;
+          }
+          
+          const { data: mediaRows } = await supabase
+            .from('display_media')
+            .select('*')
+            .in('id', mediaIds);
+            
+          if (mediaRows) {
+            const compiledItems = assignment.campaign.items_json.map((item: any) => {
+              const media = mediaRows.find((m: any) => m.id === item.media_id);
+              if (!media) return null;
+              return {
+                id: item.id,
+                type: media.type.split('/')[0],
+                url: media.url,
+                duration: item.duration || 10
+              };
+            }).filter(Boolean);
+            setMediaItems(compiledItems);
+          }
+        } else if (assignment.media) {
+          // Single media
+          setMediaItems([{
+            id: assignment.media.id,
+            type: assignment.media.type.split('/')[0],
+            url: assignment.media.url,
+            duration: 10
+          }]);
+        } else {
+          setMediaItems([]);
+        }
+      } else {
+        setMediaItems([]);
       }
     };
 
@@ -57,6 +111,13 @@ export default function DesktopPlayer() {
           window.location.reload();
         }
         fetchAssignedMedia(); // Refrescar contenido
+      })
+      .subscribe();
+
+    const assignmentChannel = supabase
+      .channel('public:display_assignments')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'display_assignments' }, () => {
+        fetchAssignedMedia();
       })
       .subscribe();
 
@@ -81,6 +142,7 @@ export default function DesktopPlayer() {
 
     return () => {
       supabase.removeChannel(channel);
+      supabase.removeChannel(assignmentChannel);
       clearInterval(heartbeatInterval);
     };
   }, []);
