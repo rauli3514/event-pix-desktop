@@ -28,20 +28,7 @@ function App() {
     };
   }, []);
 
-  const handleReady = async () => {
-    // Verificar si ya está pareado en Supabase (si tiene workspace_id)
-    const deviceId = localStorage.getItem('device_id');
-    if (deviceId) {
-      const { data } = await supabase
-        .from('display_devices')
-        .select('workspace_id')
-        .eq('device_id', deviceId)
-        .single();
-      
-      if (data && data.workspace_id) {
-        setIsPaired(true);
-      }
-    }
+  const handleReady = () => {
     setIsReady(true);
   };
 

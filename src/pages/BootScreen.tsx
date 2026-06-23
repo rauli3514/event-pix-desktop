@@ -21,7 +21,11 @@ export default function BootScreen({ onReady }: { onReady: () => void }) {
         .select('device_id')
         .eq('device_id', deviceId)
         .maybeSingle();
-        
+
+      if (selectError) {
+        alert('Error de Select Supabase: ' + JSON.stringify(selectError));
+      }
+
       if (!existing) {
         // Insert into Supabase
         const { error: insertError } = await supabase.from('display_devices').insert([
@@ -30,6 +34,7 @@ export default function BootScreen({ onReady }: { onReady: () => void }) {
         
         if (insertError) {
           setErrorMsg('Error Insert: ' + insertError.message);
+          alert('Error de Insert Supabase: ' + JSON.stringify(insertError));
         }
       } else {
         // Update last seen if exists
@@ -39,6 +44,7 @@ export default function BootScreen({ onReady }: { onReady: () => void }) {
           
         if (updateError) {
           setErrorMsg('Error Update: ' + updateError.message);
+          alert('Error de Update Supabase: ' + JSON.stringify(updateError));
         }
       }
       
