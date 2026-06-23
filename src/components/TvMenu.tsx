@@ -21,7 +21,7 @@ export default function TvMenu({ onClose }: { onClose: () => void }) {
       action: async () => {
         const deviceId = localStorage.getItem('device_id');
         if (deviceId) {
-          await supabase.from('display_devices').update({ status: 'pairing', event_id: null }).eq('pairing_code', deviceId);
+          await supabase.from('display_devices').update({ pairing_status: 'pending', group_id: null }).eq('device_id', deviceId);
         }
         window.location.reload();
       }

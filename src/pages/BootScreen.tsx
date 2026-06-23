@@ -18,24 +18,24 @@ export default function BootScreen({ onReady }: { onReady: () => void }) {
         
         // Insert into Supabase
         await supabase.from('display_devices').insert([
-          { pairing_code: deviceId, status: 'pairing' }
+          { device_id: deviceId, pairing_status: 'pending' }
         ]).select().single();
       } else {
         // Update last seen if exists
         await supabase.from('display_devices')
           .update({ last_seen: new Date().toISOString() })
-          .eq('pairing_code', deviceId);
+          .eq('device_id', deviceId);
       }
       
       setPin(deviceId);
       
       // Check if already active
       const { data } = await supabase.from('display_devices')
-        .select('status')
-        .eq('pairing_code', deviceId)
+        .select('pairing_status')
+        .eq('device_id', deviceId)
         .single();
         
-      if (data && data.status === 'active') {
+      if (data && data.pairing_status === 'linked') {
         onReady();
         return;
       }
@@ -47,10 +47,10 @@ export default function BootScreen({ onReady }: { onReady: () => void }) {
             event: 'UPDATE', 
             schema: 'public', 
             table: 'display_devices',
-            filter: `pairing_code=eq.${deviceId}`
+            filter: `device_id=eq.${deviceId}`
           }, 
           (payload) => {
-            if (payload.new.status === 'active') {
+            if (payload.new.pairing_status === 'linked') {
               subscription.unsubscribe();
               onReady();
             }

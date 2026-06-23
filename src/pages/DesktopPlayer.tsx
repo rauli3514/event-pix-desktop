@@ -26,8 +26,8 @@ export default function DesktopPlayer() {
     const fetchAssignedMedia = async () => {
       const { data, error } = await supabase
         .from('display_devices')
-        .select('event_id, status')
-        .eq('pairing_code', deviceId)
+        .select('group_id, pairing_status')
+        .eq('device_id', deviceId)
         .single();
       
       if (!error && data?.assigned_media) {
@@ -50,10 +50,10 @@ export default function DesktopPlayer() {
         event: 'UPDATE', 
         schema: 'public', 
         table: 'display_devices',
-        filter: `pairing_code=eq.${deviceId}`
+        filter: `device_id=eq.${deviceId}`
       }, (payload) => {
         console.log("Actualización en tiempo real:", payload);
-        if (payload.new.status === 'pairing') {
+        if (payload.new.pairing_status === 'pending') {
           // Fue desvinculado desde el hub o desde el menú
           window.location.reload();
         }
