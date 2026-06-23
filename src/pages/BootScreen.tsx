@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 
 export default function BootScreen({ onReady }: { onReady: () => void }) {
   const [pin, setPin] = useState<string>('');
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
     async function initDevice() {
@@ -16,21 +17,29 @@ export default function BootScreen({ onReady }: { onReady: () => void }) {
       }
       
       // Revisar si existe en la base de datos
-      const { data: existing } = await supabase.from('display_devices')
+      const { data: existing, error: selectError } = await supabase.from('display_devices')
         .select('device_id')
         .eq('device_id', deviceId)
-        .single();
+        .maybeSingle();
         
       if (!existing) {
         // Insert into Supabase
-        await supabase.from('display_devices').insert([
+        const { error: insertError } = await supabase.from('display_devices').insert([
           { device_id: deviceId, pairing_status: 'pending' }
         ]).select().single();
+        
+        if (insertError) {
+          setErrorMsg('Error Insert: ' + insertError.message);
+        }
       } else {
         // Update last seen if exists
-        await supabase.from('display_devices')
+        const { error: updateError } = await supabase.from('display_devices')
           .update({ last_seen: new Date().toISOString() })
           .eq('device_id', deviceId);
+          
+        if (updateError) {
+          setErrorMsg('Error Update: ' + updateError.message);
+        }
       }
       
       setPin(deviceId);
