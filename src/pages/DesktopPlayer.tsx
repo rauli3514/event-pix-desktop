@@ -1,11 +1,22 @@
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../lib/supabase';
-// import { writeFile, BaseDirectory } from '@tauri-apps/plugin-fs';
+import TvMenu from '../components/TvMenu';
 
 export default function DesktopPlayer() {
   const [mediaItems, setMediaItems] = useState<any[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [showMenu, setShowMenu] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const handleGlobalKey = (e: KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        setShowMenu(true);
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKey);
+    return () => window.removeEventListener('keydown', handleGlobalKey);
+  }, []);
 
   // 1. Cargar datos de Supabase en tiempo real
   useEffect(() => {
@@ -15,8 +26,8 @@ export default function DesktopPlayer() {
     const fetchAssignedMedia = async () => {
       const { data, error } = await supabase
         .from('display_devices')
-        .select('assigned_media, group_id')
-        .eq('device_id', deviceId)
+        .select('event_id, status')
+        .eq('pairing_code', deviceId)
         .single();
       
       if (!error && data?.assigned_media) {
@@ -39,9 +50,13 @@ export default function DesktopPlayer() {
         event: 'UPDATE', 
         schema: 'public', 
         table: 'display_devices',
-        filter: `device_id=eq.${deviceId}`
+        filter: `pairing_code=eq.${deviceId}`
       }, (payload) => {
         console.log("Actualización en tiempo real:", payload);
+        if (payload.new.status === 'pairing') {
+          // Fue desvinculado desde el hub o desde el menú
+          window.location.reload();
+        }
         fetchAssignedMedia(); // Refrescar contenido
       })
       .subscribe();
@@ -75,8 +90,10 @@ export default function DesktopPlayer() {
 
   if (mediaItems.length === 0) {
     return (
-      <div className="w-screen h-screen flex items-center justify-center bg-black text-white">
+      <div className="w-screen h-screen flex items-center justify-center bg-black text-white relative">
         <p className="text-2xl text-zinc-500 animate-pulse">Sin contenido asignado...</p>
+        <p className="absolute bottom-10 text-zinc-700 text-sm">Presiona OK para abrir el menú</p>
+        {showMenu && <TvMenu onClose={() => setShowMenu(false)} />}
       </div>
     );
   }
@@ -112,6 +129,7 @@ export default function DesktopPlayer() {
           sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
         />
       )}
+      {showMenu && <TvMenu onClose={() => setShowMenu(false)} />}
     </div>
   );
 }

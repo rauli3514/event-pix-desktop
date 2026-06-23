@@ -16,16 +16,51 @@ export default function BootScreen({ onReady }: { onReady: () => void }) {
         deviceId = newPin;
         localStorage.setItem('device_id', deviceId);
         
-        // TODO: Save to Supabase 'display_devices' table 
-        // using an edge function or anon role if RLS allows inserts.
+        // Insert into Supabase
+        await supabase.from('display_devices').insert([
+          { pairing_code: deviceId, status: 'pairing' }
+        ]).select().single();
+      } else {
+        // Update last seen if exists
+        await supabase.from('display_devices')
+          .update({ last_seen: new Date().toISOString() })
+          .eq('pairing_code', deviceId);
       }
       
       setPin(deviceId);
       
-      // Simulate waiting or actual pairing check
-      setTimeout(() => {
+      // Check if already active
+      const { data } = await supabase.from('display_devices')
+        .select('status')
+        .eq('pairing_code', deviceId)
+        .single();
+        
+      if (data && data.status === 'active') {
         onReady();
-      }, 3000);
+        return;
+      }
+      
+      // Subscribe to real-time changes
+      const subscription = supabase
+        .channel('public:display_devices')
+        .on('postgres_changes', { 
+            event: 'UPDATE', 
+            schema: 'public', 
+            table: 'display_devices',
+            filter: `pairing_code=eq.${deviceId}`
+          }, 
+          (payload) => {
+            if (payload.new.status === 'active') {
+              subscription.unsubscribe();
+              onReady();
+            }
+          }
+        )
+        .subscribe();
+        
+      return () => {
+        subscription.unsubscribe();
+      };
     }
     
     initDevice();
