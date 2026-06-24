@@ -44,6 +44,8 @@ jobs:
         run: |
           export NDK_HOME=$ANDROID_HOME/ndk/25.2.9519653
           npx tauri android init --ci
+          # Disable minification to prevent crashes on TV
+          sed -i.bak 's/isMinifyEnabled = true/isMinifyEnabled = false/' src-tauri/gen/android/app/build.gradle.kts
           npx tauri android build --apk
 
       - name: Sign Release APK
