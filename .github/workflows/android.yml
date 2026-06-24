@@ -44,10 +44,21 @@ jobs:
         run: |
           export NDK_HOME=$ANDROID_HOME/ndk/25.2.9519653
           npx tauri android init --ci
-          npx tauri android build --apk --debug
+          npx tauri android build --apk
+
+      - name: Sign Release APK
+        run: |
+          # Create a dummy release keystore
+          keytool -genkey -v -keystore release.keystore -alias eventpix -keyalg RSA -keysize 2048 -validity 10000 -storepass "password123" -keypass "password123" -dname "CN=EventPix, OU=IT, O=EventPix, L=City, S=State, C=US"
+          # Find apksigner
+          APKSIGNER=$(find $ANDROID_HOME/build-tools -name "apksigner" | sort | tail -n 1)
+          # Sign the unsigned release APK
+          $APKSIGNER sign --ks release.keystore --ks-pass pass:password123 --key-pass pass:password123 src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk
+          # Rename it for clarity
+          mv src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk src-tauri/gen/android/app/build/outputs/apk/universal/release/event-pix-tv.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: event-pix-android-apk
-          path: src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk
+          path: src-tauri/gen/android/app/build/outputs/apk/universal/release/event-pix-tv.apk
